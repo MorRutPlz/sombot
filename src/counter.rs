@@ -10,9 +10,9 @@ use crate::config::Config;
 
 pub fn update_loop(config: Config, http: Arc<Http>) {
     tokio::spawn(async move {
-        loop {
-            debug!("Sleeping for 15 seconds");
+        let mut previous = HashMap::new();
 
+        loop {
             sleep(Duration::from_secs(15)).await;
 
             let member_roles = match http
@@ -52,31 +52,47 @@ pub fn update_loop(config: Config, http: Arc<Http>) {
                 }
             }
 
-            debug!("Total member count: {}", member_roles.len());
-            debug!(
-                "Members with roles: {}",
-                role_count
-                    .iter()
-                    .map(|(_, (count, _, _))| *count)
-                    .sum::<usize>()
-            );
+            //debug!("Total member count: {}", member_roles.len());
+            //debug!(
+            //    "Members with roles: {}",
+            //    role_count
+            //        .iter()
+            //        .map(|(_, (count, _, _))| *count)
+            //        .sum::<usize>()
+            //);
 
             update_counter(
                 &http,
                 "Total Members".to_string(),
                 config.counter.total_member_id,
                 member_roles.len(),
+                &mut previous,
             )
             .await;
 
             for (_, (count, name, channel)) in role_count.into_iter() {
-                update_counter(&http, name, channel, count).await;
+                update_counter(&http, name, channel, count, &mut previous).await;
             }
         }
     });
 }
 
-async fn update_counter(http: &Arc<Http>, counter_name: String, counter_id: u64, count: usize) {
+async fn update_counter(
+    http: &Arc<Http>,
+    counter_name: String,
+    counter_id: u64,
+    count: usize,
+    previous: &mut HashMap<u64, usize>,
+) {
+    match previous.get(&counter_id) {
+        Some(n) => {
+            if *n == count {
+                return;
+            }
+        }
+        None => {}
+    }
+
     let channel_name = format!("{}: {}", counter_name, count);
 
     match http
@@ -90,9 +106,12 @@ async fn update_counter(http: &Arc<Http>, counter_name: String, counter_id: u64,
         )
         .await
     {
-        Ok(_) => {}
+        Ok(_) => {
+            info!("Counter '{}' updated to {}", counter_name, count);
+            previous.insert(counter_id, count);
+        }
         Err(e) => {
-            error!("Failed to update counter channel name: {}", e);
+            error!("Failed to update counter channel `{}`", e);
         }
     }
 }

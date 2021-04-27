@@ -13,6 +13,7 @@ pub struct Discord {
     pub application_id: u64,
     pub token: String,
     pub guild_id: u64,
+    pub status: String,
 }
 
 #[derive(Clone, Deserialize, Serialize)]

@@ -1,16 +1,17 @@
 #[macro_use]
 mod logger;
 mod config;
+mod counter;
 mod handler;
-mod update;
+mod typemap;
 
 use serenity::client::{bridge::gateway::GatewayIntents, Client};
 use std::io::ErrorKind;
 
-use crate::{config::Counter, handler::Handler};
+use crate::{config::Counter, handler::Handler, typemap::TypeMapConfig};
 use crate::{
     config::{Config, Discord, Role},
-    update::update_loop,
+    counter::update_loop,
 };
 
 #[tokio::main]
@@ -29,6 +30,7 @@ async fn main() {
                         application_id: 836611210383720468,
                         token: "".to_string(),
                         guild_id: 836524537042042910,
+                        status: "mishfiringu shyshtemu".to_string(),
                     },
                     counter: Counter {
                         total_member_id: 836542574050672640,
@@ -62,7 +64,13 @@ async fn main() {
         .await
         .expect("Error creating client");
 
-    update_loop(config, client.cache_and_http.http.clone());
+    update_loop(config.clone(), client.cache_and_http.http.clone());
+
+    {
+        let mut data = client.data.write().await;
+
+        data.insert::<TypeMapConfig>(config);
+    }
 
     if let Err(why) = client.start().await {
         error!("An error occurred while running the client: {:?}", why);
