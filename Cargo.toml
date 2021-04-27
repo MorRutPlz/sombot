@@ -1,0 +1,33 @@
+[package]
+name = "sombot"
+version = "0.1.0"
+authors = ["user"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+env_logger = "0.8"
+log = "0.4"
+mongodb = "2.0.0-alpha.1"
+rand = "0.8"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time"] }
+toml = "0.5"
+
+[dependencies.serenity]
+git = "https://github.com/serenity-rs/serenity.git"
+branch = "current"
+default-features = false
+features = [
+    "builder",
+    "cache",
+    "client",
+    "gateway",
+    "http",
+    "model",
+    "utils",
+    "rustls_backend",
+    "unstable_discord_api"
+]
