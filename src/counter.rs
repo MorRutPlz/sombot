@@ -1,3 +1,9 @@
+use async_channel::Receiver;
+use futures::{
+    future::{select, Either},
+    pin_mut,
+};
+use reqwest::Client;
 use serde_json::{json, Map};
 use serenity::http::Http;
 use std::collections::HashMap;
@@ -8,12 +14,29 @@ use tokio::time::sleep;
 
 use crate::config::Config;
 
-pub fn update_loop(config: Config, http: Arc<Http>) {
+pub fn update_loop(config: Config, http: Arc<Http>, rx: Receiver<()>) {
+    let client = Arc::new(Client::new());
+    let mut http = Http::new(client, &http.token);
+    http.ratelimiter_disabled = true;
+
+    let http = Arc::new(http);
+
     tokio::spawn(async move {
         let mut previous = HashMap::new();
 
         loop {
-            sleep(Duration::from_secs(15)).await;
+            let sleep = sleep(Duration::from_secs(120));
+            let recv = rx.recv();
+
+            pin_mut!(sleep);
+            pin_mut!(recv);
+
+            match select(sleep, recv).await {
+                Either::Left(_) => {}
+                Either::Right(_) => debug!("Forced update triggered"),
+            }
+
+            debug!("Getting guild members");
 
             let member_roles = match http
                 .get_guild_members(config.discord.guild_id, None, None)
@@ -29,6 +52,8 @@ pub fn update_loop(config: Config, http: Arc<Http>) {
                     continue;
                 }
             };
+
+            debug!("Extracting role information");
 
             let member_roles = member_roles
                 .into_iter()
@@ -64,7 +89,7 @@ pub fn update_loop(config: Config, http: Arc<Http>) {
             update_counter(
                 &http,
                 "Total Members".to_string(),
-                config.counter.total_member_id,
+                config.sombot.total_member_id,
                 member_roles.len(),
                 &mut previous,
             )
@@ -87,13 +112,15 @@ async fn update_counter(
     match previous.get(&counter_id) {
         Some(n) => {
             if *n == count {
-                return;
+                //return;
             }
         }
         None => {}
     }
 
     let channel_name = format!("{}: {}", counter_name, count);
+
+    debug!("Updating counter `{}` to `{}`", counter_id, channel_name);
 
     match http
         .edit_channel(
@@ -111,7 +138,7 @@ async fn update_counter(
             previous.insert(counter_id, count);
         }
         Err(e) => {
-            error!("Failed to update counter channel `{}`", e);
+            warn!("Failed to update counter channel `{:?}`", e);
         }
     }
 }

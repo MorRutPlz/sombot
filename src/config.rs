@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Deserialize, Serialize)]
 pub struct Config {
     pub discord: Discord,
-    pub counter: Counter,
+    pub sombot: Sombot,
     #[serde(rename = "role")]
     pub roles: Vec<Role>,
 }
@@ -17,8 +17,9 @@ pub struct Discord {
 }
 
 #[derive(Clone, Deserialize, Serialize)]
-pub struct Counter {
+pub struct Sombot {
     pub total_member_id: u64,
+    pub people_role_id: u64,
 }
 
 #[derive(Clone, Deserialize, Serialize)]

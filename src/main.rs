@@ -5,14 +5,16 @@ mod counter;
 mod handler;
 mod typemap;
 
+use async_channel::bounded;
 use serenity::client::{bridge::gateway::GatewayIntents, Client};
 use std::io::ErrorKind;
 
-use crate::{config::Counter, handler::Handler, typemap::TypeMapConfig};
 use crate::{
-    config::{Config, Discord, Role},
+    config::{Config, Discord, Role, Sombot},
     counter::update_loop,
+    typemap::TypeMapSender,
 };
+use crate::{handler::Handler, typemap::TypeMapConfig};
 
 #[tokio::main]
 async fn main() {
@@ -32,8 +34,9 @@ async fn main() {
                         guild_id: 836524537042042910,
                         status: "mishfiringu shyshtemu".to_string(),
                     },
-                    counter: Counter {
+                    sombot: Sombot {
                         total_member_id: 836542574050672640,
+                        people_role_id: 836613136677077053,
                     },
                     roles: vec![
                         Role {
@@ -64,12 +67,15 @@ async fn main() {
         .await
         .expect("Error creating client");
 
-    update_loop(config.clone(), client.cache_and_http.http.clone());
+    let (tx, rx) = bounded(1);
+
+    update_loop(config.clone(), client.cache_and_http.http.clone(), rx);
 
     {
         let mut data = client.data.write().await;
 
         data.insert::<TypeMapConfig>(config);
+        data.insert::<TypeMapSender>(tx);
     }
 
     if let Err(why) = client.start().await {
